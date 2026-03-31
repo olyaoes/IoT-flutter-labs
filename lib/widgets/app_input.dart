@@ -4,17 +4,20 @@ class AppInput extends StatelessWidget {
   const AppInput({
     required this.hint,
     this.isPass = false,
+    this.controller,
     super.key,
   });
 
   final String hint;
   final bool isPass;
+  final TextEditingController? controller;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: TextField(
+        controller: controller,
         obscureText: isPass,
         style: const TextStyle(fontSize: 16),
         decoration: InputDecoration(
