@@ -88,7 +88,16 @@ class _RegisterPageState extends State<RegisterPage> {
     await repo.saveUser(user);
 
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/home');
+    
+    // Показуємо успіх і кидаємо на екран логіну
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Account created! Please log in.'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 3),
+      ),
+    );
+    Navigator.pop(context);
   }
 
   @override

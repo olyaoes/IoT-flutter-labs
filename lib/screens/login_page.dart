@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:lab1_water/repositories/shared_prefs_user_repository.dart';
 import 'package:lab1_water/widgets/app_button.dart';
@@ -37,10 +38,24 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
+    final List<ConnectivityResult> conn =
+        await Connectivity().checkConnectivity();
+
+    if (conn.contains(ConnectivityResult.none)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No internet connection!'),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     final SharedPrefsUserRepository repo = SharedPrefsUserRepository();
     final bool isSuccess = await repo.login(email, password);
 
-    // Ідеальна перевірка для лінтера перед використанням Navigator
     if (!mounted) return;
 
     if (isSuccess) {

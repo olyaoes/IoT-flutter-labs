@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:lab1_water/models/user_model.dart';
 import 'package:lab1_water/repositories/shared_prefs_user_repository.dart';
@@ -60,6 +61,21 @@ class _ProfilePageState extends State<ProfilePage> {
       return;
     }
 
+    final List<ConnectivityResult> conn = 
+        await Connectivity().checkConnectivity();
+        
+    if (conn.contains(ConnectivityResult.none)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No internet connection to save changes!'),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     final UserModel updatedUser = UserModel(
       fullName: newName,
       email: _currentUser!.email,
@@ -83,8 +99,35 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _logout() {
-    Navigator.pushReplacementNamed(context, '/');
+  Future<void> _showLogoutDialog() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to log out?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'Logout',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      await _repo.deleteUser();
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 
   @override
@@ -170,7 +213,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 20),
                   AppButton(
                     text: 'LOGOUT',
-                    onPress: _logout,
+                    onPress: _showLogoutDialog,
                   ),
                 ],
               ),
