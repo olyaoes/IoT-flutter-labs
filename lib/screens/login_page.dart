@@ -1,13 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:lab1_water/repositories/shared_prefs_user_repository.dart';
 import 'package:lab1_water/widgets/app_button.dart';
 import 'package:lab1_water/widgets/app_input.dart';
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
   @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _login() async {
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Fields cannot be empty'),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    final SharedPrefsUserRepository repo = SharedPrefsUserRepository();
+    final bool isSuccess = await repo.login(email, password);
+
+    // Ідеальна перевірка для лінтера перед використанням Navigator
+    if (!mounted) return;
+
+    if (isSuccess) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid email or password'),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
+    final Size size = MediaQuery.sizeOf(context);
 
     return Scaffold(
       body: DecoratedBox(
@@ -41,14 +92,19 @@ class LoginPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 50),
-                  const AppInput(hint: 'Email'),
-                  const AppInput(hint: 'Password', isPass: true),
+                  AppInput(
+                    hint: 'Email',
+                    controller: _emailController,
+                  ),
+                  AppInput(
+                    hint: 'Password',
+                    isPass: true,
+                    controller: _passwordController,
+                  ),
                   const SizedBox(height: 20),
                   AppButton(
                     text: 'LOGIN',
-                    onPress: () {
-                      Navigator.pushReplacementNamed(context, '/home');
-                    },
+                    onPress: _login,
                   ),
                   const SizedBox(height: 10),
                   TextButton(
