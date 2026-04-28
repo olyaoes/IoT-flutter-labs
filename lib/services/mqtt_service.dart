@@ -32,7 +32,7 @@ class MqttService {
     try {
       await client!.connect();
       if (client?.connectionStatus?.state == MqttConnectionState.connected) {
-        debugPrint('MQTT: Connection established successfully!');
+        debugPrint('MQTT: Connection established successfully');
         
         client!.subscribe(
           'aquatracker/sensor/temperature',
