@@ -11,14 +11,14 @@ class SharedPrefsUserRepository implements UserRepository {
   Future<void> saveUser(UserModel user) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final List<UserModel> users = await _getAllUsers();
-    
+
     users.removeWhere((UserModel u) => u.email == user.email);
     users.add(user);
 
     final List<String> encodedUsers = users
         .map((UserModel u) => jsonEncode(u.toJson()))
         .toList();
-    
+
     await prefs.setStringList(_usersListKey, encodedUsers);
   }
 
@@ -31,8 +31,9 @@ class SharedPrefsUserRepository implements UserRepository {
     }
 
     return encodedUsers.map((String s) {
-      final dynamic decoded = jsonDecode(s);
-      return UserModel.fromJson(decoded as Map<String, dynamic>);
+      final Map<String, dynamic> decoded =
+          jsonDecode(s) as Map<String, dynamic>;
+      return UserModel.fromJson(decoded);
     }).toList();
   }
 
@@ -42,8 +43,9 @@ class SharedPrefsUserRepository implements UserRepository {
     final String? userData = prefs.getString(_currentUserKey);
 
     if (userData != null) {
-      final dynamic decoded = jsonDecode(userData);
-      return UserModel.fromJson(decoded as Map<String, dynamic>);
+      final Map<String, dynamic> decoded =
+          jsonDecode(userData) as Map<String, dynamic>;
+      return UserModel.fromJson(decoded);
     }
     return null;
   }
@@ -57,11 +59,14 @@ class SharedPrefsUserRepository implements UserRepository {
   @override
   Future<bool> login(String email, String password) async {
     final List<UserModel> users = await _getAllUsers();
-    
+
     for (final UserModel user in users) {
       if (user.email == email && user.password == password) {
         final SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_currentUserKey, jsonEncode(user.toJson()));
+        await prefs.setString(
+          _currentUserKey,
+          jsonEncode(user.toJson()),
+        );
         return true;
       }
     }
