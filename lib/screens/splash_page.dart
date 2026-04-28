@@ -18,29 +18,36 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _checkAuthAndNetwork() async {
-    await Future<void>.delayed(const Duration(seconds: 1));
+    try {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      final List<ConnectivityResult> conn = await Connectivity()
+          .checkConnectivity()
+          .timeout(const Duration(seconds: 2));
+          
+      final bool hasInternet = !conn.contains(ConnectivityResult.none);
 
-    final List<ConnectivityResult> conn = 
-        await Connectivity().checkConnectivity();
-    final bool hasInternet = !conn.contains(ConnectivityResult.none);
+      final SharedPrefsUserRepository repo = SharedPrefsUserRepository();
+      final UserModel? user = await repo.getUser();
 
-    final SharedPrefsUserRepository repo = SharedPrefsUserRepository();
-    final UserModel? user = await repo.getUser();
+      if (!mounted) return;
 
-    if (!mounted) return;
-
-    if (user != null) {
-      if (!hasInternet) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Offline mode. Data may not sync.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
-          ),
-        );
+      if (user != null) {
+        if (!hasInternet) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Offline mode. Data may not sync.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        Navigator.pushReplacementNamed(context, '/login');
       }
-      Navigator.pushReplacementNamed(context, '/home');
-    } else {
+    } catch (e) {
+      debugPrint('Splash error caught: $e'); 
+      if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/login');
     }
   }
