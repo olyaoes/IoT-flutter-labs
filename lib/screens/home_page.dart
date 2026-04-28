@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:lab1_water/models/user_model.dart';
-import 'package:lab1_water/repositories/shared_prefs_user_repository.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lab1_water/models/water_record.dart';
+import 'package:lab1_water/repositories/water_repository.dart';
+import 'package:lab1_water/services/mqtt_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -11,65 +11,18 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final MqttService _mqtt = MqttService();
+  final WaterRepository _repository = WaterRepository();
   final TextEditingController _waterController = TextEditingController();
-  final SharedPrefsUserRepository _repo = SharedPrefsUserRepository();
 
-  int _dailyGoal = 2000;
-  int _currentWater = 0;
-  int _lastLog = 0;
-  bool _isLoading = true;
+  late Future<List<WaterRecord>> _historyFuture;
+  final int _currentWater = 213;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    final UserModel? user = await _repo.getUser();
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    if (mounted) {
-      setState(() {
-        if (user != null) {
-          _dailyGoal = user.dailyGoal;
-        }
-        _currentWater = prefs.getInt('current_water') ?? 0;
-        _lastLog = prefs.getInt('last_log') ?? 0;
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _logWater() async {
-    final String input = _waterController.text.trim();
-    final int? amount = int.tryParse(input);
-
-    if (amount == null || amount <= 0) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid amount'),
-          backgroundColor: Colors.redAccent,
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final int newWater = _currentWater + amount;
-
-    await prefs.setInt('current_water', newWater);
-    await prefs.setInt('last_log', amount);
-
-    if (mounted) {
-      setState(() {
-        _currentWater = newWater;
-        _lastLog = amount;
-        _waterController.clear();
-      });
-    }
+    _mqtt.connect();
+    _historyFuture = _repository.getWaterHistory();
   }
 
   @override
@@ -80,108 +33,168 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: const Color(0xFFE0F7FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF00BFFF),
         title: const Text(
           'AquaTracker',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: <Widget>[
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.pushNamed(context, '/profile').then((_) {
-                _loadData();
-              });
-            },
+        backgroundColor: const Color(0xFF00BFFF),
+        centerTitle: false,
+        actions: const <Widget>[
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: Icon(Icons.person, color: Colors.white),
           ),
         ],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(40),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(25),
+        child: Column(
+          children: <Widget>[
+            _buildMqttCard(),
+            const SizedBox(height: 30),
+            Text(
+              '$_currentWater / 2000 ml',
+              style: const TextStyle(
+                fontSize: 45,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Text(
+              'Last log: +213 ml',
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+            const SizedBox(height: 30),
+            _buildWaterInput(),
+            const SizedBox(height: 40),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'History (Offline Mode):',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildApiHistory(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMqttCard() {
+    return StreamBuilder<String>(
+      stream: _mqtt.tempStream,
+      builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                Text(
-                  '$_currentWater / $_dailyGoal ml',
-                  style: const TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Last log: +$_lastLog ml',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 40),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(25),
-                    border: Border.all(
-                      color: Colors.grey.withValues(alpha: 0.4),
-                      width: 1.5,
+                const Icon(Icons.thermostat, color: Colors.orange, size: 40),
+                const SizedBox(width: 20),
+                Column(
+                  children: <Widget>[
+                    const Text(
+                      'Water Temp',
+                      style: TextStyle(color: Colors.grey),
                     ),
-                  ),
-                  child: TextField(
-                    controller: _waterController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      hintText: 'Enter amount (ml)',
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 20,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 60,
-                  child: ElevatedButton(
-                    onPressed: _logWater,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00BFFF),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    child: const Text(
-                      'LOG WATER',
-                      style: TextStyle(
-                        fontSize: 16,
+                    Text(
+                      '${snapshot.data ?? '21'}°C',
+                      style: const TextStyle(
+                        fontSize: 28,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWaterInput() {
+    return Column(
+      children: <Widget>[
+        TextField(
+          controller: _waterController,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            hintText: 'Enter amount (ml)',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(25),
+              borderSide: BorderSide.none,
+            ),
+          ),
         ),
-      ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          height: 55,
+          child: ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00BFFF),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+            child: const Text(
+              'LOG WATER',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildApiHistory() {
+    return FutureBuilder<List<WaterRecord>>(
+      future: _historyFuture,
+      builder: (
+        BuildContext context,
+        AsyncSnapshot<List<WaterRecord>> snapshot,
+      ) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final List<WaterRecord> list = snapshot.data ?? <WaterRecord>[];
+        if (list.isEmpty) {
+          return const Text('No history found.');
+        }
+
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: list.length,
+          itemBuilder: (BuildContext context, int i) => Card(
+            margin: const EdgeInsets.symmetric(vertical: 5),
+            child: ListTile(
+              leading: const Icon(Icons.history, color: Colors.blue),
+              title: Text('${list[i].amount} ml'),
+              subtitle: Text(list[i].time),
+            ),
+          ),
+        );
+      },
     );
   }
 }
