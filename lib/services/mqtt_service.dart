@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:mqtt_client/mqtt_browser_client.dart';
 import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart'; 
 
 class MqttService {
-  MqttBrowserClient? client;
+  MqttServerClient? client;
   final StreamController<String> _tempController =
       StreamController<String>.broadcast();
 
@@ -13,13 +13,13 @@ class MqttService {
   Future<void> connect() async {
     final String clientId = 'aqua_${DateTime.now().millisecondsSinceEpoch}';
     
-    debugPrint('MQTT: Connecting to wss://broker.hivemq.com/mqtt...');
+    debugPrint('MQTT: Connecting to broker.hivemq.com...');
     
-    client = MqttBrowserClient(
-      'ws://broker.hivemq.com/mqtt',
+    client = MqttServerClient(
+      'broker.hivemq.com',
       clientId,
     );
-    client!.port = 8000;
+    client!.port = 1883; 
     client!.setProtocolV311();
     client!.keepAlivePeriod = 20;
 
