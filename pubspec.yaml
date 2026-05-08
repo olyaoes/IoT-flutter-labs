@@ -38,6 +38,7 @@ dependencies:
   connectivity_plus: ^7.1.0
   mqtt_client: ^10.11.10
   dio: ^5.4.0
+  flutter_bloc: ^9.1.1
 
 dev_dependencies:
   flutter_test:
